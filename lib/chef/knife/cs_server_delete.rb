@@ -45,23 +45,25 @@ module KnifeCloudstack
           next
         end
 
-        if server['state'] == 'Destroyed' then
-          ui.warn("Server '#{hostname}' already destroyed")
-          connection.delete_server(hostname, true) if confirm_action("Server '#{hostname}' already destroyed, do you want to expunge it?")
-          next
-        end
-
         rules = connection.list_port_forwarding_rules
 
         show_object_details(server, connection, rules)
 
-        result = confirm_action("Do you really want to delete this server")
+        if server['state'] == 'Destroyed' then
+          result = confirm_action("Do you really want to expunge this server")
+          expunge = true if result
+        else
+          result = confirm_action("Do you really want to delete this server")
+        end
+
         if result
+          expunge = confirm_action("Do you want to expunge this server") if expunge.nil?
+          puts "\n"
           print "#{ui.color("Waiting for deletion", :magenta)}"
           disassociate_virtual_ip_address server
-          connection.delete_server(hostname, false)
+          connection.delete_server(hostname, expunge)
+          expunge ? ui.msg("Expunged server #{hostname}") : ui.msg("Deleted server #{hostname}")
           puts "\n"
-          ui.msg("Deleted server #{hostname}")
 
           # delete chef client and node
           node_name = hostname  # connection.get_server_fqdn server ## server create doesn't add fqdn!
